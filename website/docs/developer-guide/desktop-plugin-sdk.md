@@ -105,7 +105,7 @@ a breaking change:
   `host.request(...)` first; use `ctx.rest(...)` / `ctx.socket(...)` only for
   routes your plugin owns.
 - Tolerate missing optional capabilities. `ctx.socket(...)` is a no-op on OAuth
-  remotes, `ctx.os.*` may resolve `false`, and host state can be temporarily
+  remotes, `ctx.os.*` may return `false`, and host state can be temporarily
   empty during startup or reconnects.
 - Assume non-breaking host evolution, not frozen internals. If you need
   something not exposed by the SDK, request a new SDK capability instead of
