@@ -174,8 +174,8 @@ real breaking change:
    never poll faster than a few seconds.
 5. If you created a paired backend under `$HERMES_HOME/plugins/<id>/`, enable
    it with `hermes plugins enable <id>` before testing.
-6. Write the file with your file tools, then ask the user to run
-   **Reload desktop plugins** from ⌘K.
+6. Write the file with your file tools and wait for hot-reload; if it does not
+   appear, ask the user to run **Reload desktop plugins** from ⌘K.
 
 ## Pitfalls
 
