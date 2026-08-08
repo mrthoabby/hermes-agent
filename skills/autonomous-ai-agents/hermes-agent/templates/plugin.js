@@ -4,10 +4,20 @@
  * where <hermes home> is ~/.hermes by default, or ~/.hermes/profiles/<name>
  * when running a named profile (`hermes -p <name>`). Run `hermes doctor` (or
  * check the app's Settings → Plugins folder path) if unsure which is active.
- * Then run "Reload desktop plugins" from ⌘K in the desktop app.
+ * The desktop app hot-reloads this file within a few seconds; "Reload desktop
+ * plugins" from ⌘K is the manual fallback. Enable/disable happens in Settings
+ * → Plugins.
+ *
+ * If the UI also needs Python backend routes, add a matching general plugin at
+ *   <hermes home>/plugins/<id>/dashboard/manifest.json
+ *   <hermes home>/plugins/<id>/dashboard/plugin_api.py
+ * and enable it with `hermes plugins enable <id>` so `ctx.rest()` /
+ * `ctx.socket()` have a live backend namespace.
  *
  * Plain ESM, loaded uncompiled — UI is jsx() calls, not JSX syntax.
  * Only these imports resolve: @hermes/plugin-sdk, react, react/jsx-runtime.
+ * For forward compatibility, stay on the public SDK surface; do not import
+ * app internals from apps/desktop/src/... .
  */
 
 import { cn, haptic, host, Tip, usePluginI18n, useValue } from '@hermes/plugin-sdk'

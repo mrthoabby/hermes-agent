@@ -32,6 +32,30 @@ The three do not share code, APIs, or delivery. Only the backend `plugin_api.py`
 namespace (`/api/plugins/<id>`) is shared between the desktop and dashboard SDKs.
 :::
 
+## How Hermes desktop plugins load today
+
+There are two pieces you can mix, and keeping them separate is the key to
+building something that matches the current repo:
+
+1. **Renderer plugin (most plugins stop here)** —
+   `$HERMES_HOME/desktop-plugins/<id>/plugin.js`
+   - plain ESM
+   - loaded by the desktop app
+   - hot-reloaded automatically after saves
+   - enabled/disabled in **Settings → Plugins**
+2. **Optional Python backend** —
+   `$HERMES_HOME/plugins/<id>/dashboard/manifest.json` +
+   `plugin_api.py`
+   - served under `/api/plugins/<id>`
+   - only needed when the plugin requires custom server-side routes or sockets
+   - loaded through the general Hermes plugin system, so the plugin must also
+     be enabled with `hermes plugins enable <id>` or `plugins.enabled` in
+     `config.yaml`
+
+If you only need UI plus existing gateway/session/config operations, use the
+renderer plugin alone and talk to Hermes through `host.request(...)` and
+`host.onEvent(...)`. Add the Python backend only for plugin-specific behavior.
+
 ## Mental model
 
 The SDK follows the VS Code module model. A plugin author imports exactly one
@@ -63,6 +87,29 @@ differences. No desktop plugins ship in the core tree today — reference demos
 live in the companion
 [`hermes-example-plugins`](https://github.com/NousResearch/hermes-example-plugins)
 repo.
+
+## Compatibility contract
+
+To keep a plugin working across future Hermes releases unless the SDK itself has
+a breaking change:
+
+- Stay on the **public desktop SDK**: `@hermes/plugin-sdk`, `react`, and
+  `react/jsx-runtime`. Do not import from `apps/desktop/src/...` or any other
+  app internals.
+- Use contributions and RPC, not DOM patching. Prefer `ctx.register(...)`,
+  `host.request(...)`, `host.onEvent(...)`, `ctx.storage`, and `ctx.i18n` over
+  assumptions about current pane layout or internal component structure.
+- Keep the plugin `id` stable and make the folder name match it. Hermes keys
+  settings, storage, routing, and reload provenance off that id.
+- Treat the paired Python backend as optional and narrow. Reach for
+  `host.request(...)` first; use `ctx.rest(...)` / `ctx.socket(...)` only for
+  routes your plugin owns.
+- Tolerate missing optional capabilities. `ctx.socket(...)` is a no-op on OAuth
+  remotes, `ctx.os.*` may resolve `false`, and host state can be temporarily
+  empty during startup or reconnects.
+- Assume non-breaking host evolution, not frozen internals. If you need
+  something not exposed by the SDK, request a new SDK capability instead of
+  coupling the plugin to a private implementation detail.
 
 ## Quick start — your first plugin
 

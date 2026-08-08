@@ -10,6 +10,26 @@ system (`~/.hermes/plugins/`) is otherwise documented separately.
 Full human reference (every export, area payloads, backend, security):
 `website/docs/developer-guide/desktop-plugin-sdk.md`.
 
+## Current Hermes flow
+
+Hermes has **three different plugin systems** that people often mix up:
+
+- **Desktop UI plugins** — plain ESM files under
+  `$HERMES_HOME/desktop-plugins/<id>/plugin.js`. This is the surface this
+  reference covers.
+- **General Python plugins** — `plugin.yaml` + `__init__.py` under
+  `$HERMES_HOME/plugins/<id>/`. Use these for agent tools, hooks, slash
+  commands, CLI commands, and optional backend APIs.
+- **Dashboard plugins** — separate browser-side extensions for
+  `hermes dashboard`; they do not share the desktop SDK.
+
+If a desktop plugin needs only UI plus gateway RPC, keep it as a **desktop
+file only**. If it also needs custom server-side logic, ship an **optional
+paired backend** at `$HERMES_HOME/plugins/<id>/dashboard/manifest.json` +
+`plugin_api.py`; Hermes serves that namespace at `/api/plugins/<id>`, but
+only after the general plugin is enabled with `hermes plugins enable <id>`
+or added to `plugins.enabled` in `config.yaml`.
+
 ## When to Use
 
 - The user asks for a new desktop UI element (a pane, a statusbar widget, a
@@ -34,6 +54,10 @@ Full human reference (every export, area payloads, backend, security):
    **Reload desktop plugins**.)
 3. If loading fails the app shows a toast naming the error — fix the file
    and save again.
+4. If the plugin also needs a Python backend, create the matching general
+   plugin under `$HERMES_HOME/plugins/<id>/dashboard/`, then enable it with
+   `hermes plugins enable <id>` so `ctx.rest(...)` / `ctx.socket(...)` have a
+   live backend to talk to.
 
 ## Quick Reference
 
@@ -115,6 +139,29 @@ The ONLY import surface is `@hermes/plugin-sdk` (plus `react` /
   and `icons.*`. Prefer these over hand-rolled elements so the plugin looks
   native; style with theme vars, never hardcoded colors.
 
+## Compatibility rules
+
+To keep a desktop plugin working across Hermes updates unless the SDK has a
+real breaking change:
+
+- Use only the **public SDK surface**: `@hermes/plugin-sdk`, `react`, and
+  `react/jsx-runtime`. Never import from `apps/desktop/src/...` or other app
+  internals.
+- Treat `host.request(...)`, `host.onEvent(...)`, `ctx.register(...)`,
+  `ctx.storage`, and `ctx.i18n` as the stable contract. Prefer them over
+  reading internal DOM shape or private renderer state.
+- Keep the plugin **id stable** and make the folder name match it. Storage,
+  backend routing, and enable/disable state key off that id.
+- If you add a paired Python backend, keep it optional and narrow: use
+  `host.request(...)` for normal gateway/session/config operations, and use
+  `ctx.rest(...)` only for plugin-specific behavior.
+- Always tolerate missing optional capabilities. `ctx.socket(...)` is a no-op
+  on OAuth remotes, `ctx.os.*` may return `false`, and host state can be empty
+  during startup or reconnects.
+- Accept host evolution: avoid assuming fixed pane layouts, exact DOM
+  structure, or undocumented event payloads. Register contributions through
+  area ids instead of patching core UI directly.
+
 ## Procedure
 
 1. Pick a short kebab-case `id`; the folder name must match.
@@ -125,7 +172,9 @@ The ONLY import surface is `@hermes/plugin-sdk` (plus `react` /
    zone automatically; the user can drag it anywhere afterwards.
 4. Fetch data with `host.request` and/or subscribe with `host.onEvent`;
    never poll faster than a few seconds.
-5. Write the file with your file tools, then ask the user to run
+5. If you created a paired backend under `$HERMES_HOME/plugins/<id>/`, enable
+   it with `hermes plugins enable <id>` before testing.
+6. Write the file with your file tools, then ask the user to run
    **Reload desktop plugins** from ⌘K.
 
 ## Pitfalls
