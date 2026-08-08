@@ -28,6 +28,85 @@ Every adapter extends `BasePlatformAdapter` from `gateway/platforms/base.py` and
 
 Inbound messages are received by the adapter and forwarded via `self.handle_message(event)`, which the base class routes to the gateway runner.
 
+## Building Your Own Messaging App
+
+If your messaging app does not exist yet, design it so Hermes integrates at the
+**platform edge**, not inside your app's core business logic.
+
+For a full greenfield blueprint, see
+[Build Your Own Messaging App for Hermes](/guides/build-your-own-messaging-app).
+
+Recommended split:
+
+```text
+Client apps (web/mobile/desktop)
+        ↓
+Your messaging backend
+        ↓
+Media/storage service
+        ↓
+Hermes connector or platform adapter
+        ↓
+Hermes gateway / AIAgent
+```
+
+That separation keeps your app in control of users, conversations, auth,
+attachments, and notification fan-out while Hermes stays responsible for agent
+behavior.
+
+### Recommended backend modules
+
+For a first version, keep the app small and explicit:
+
+- **Users** — identities, auth, presence
+- **Conversations** — 1:1 threads first; add groups later
+- **Messages** — text, sender, timestamps, status
+- **Attachments** — image/audio/video/document metadata + storage keys
+- **Delivery state** — queued, sent, failed, read
+- **Hermes sessions** — conversation → Hermes session mapping
+
+### Text message flow
+
+1. Your app stores the inbound user message.
+2. The connector/adapter normalizes it into a `MessageEvent`.
+3. Hermes processes the event through the gateway runner.
+4. The adapter sends Hermes' reply back to your backend.
+5. Your backend persists and fan-outs the response to clients.
+
+### Multimedia flow
+
+Design media as a separate concern from text:
+
+1. Your app receives an upload and stores the original bytes.
+2. The connector/adapter fetches or receives those bytes.
+3. Cache the file for Hermes with `cache_media_bytes(...)` or the lower-level
+   helpers (`cache_image_from_bytes(...)`, `cache_audio_from_bytes(...)`,
+   `cache_document_from_bytes(...)`).
+4. Put the resulting local file path(s) on `MessageEvent.media_urls` and MIME
+   types on `MessageEvent.media_types`.
+5. Hermes then uses its existing pipelines automatically:
+   - images → vision
+   - voice/audio → STT/transcription
+   - video → media attachment path
+   - documents → file/document extraction path
+
+For outbound media, implement the native send methods that match what your app
+supports (`send_image_file`, `send_voice`, `send_video`, `send_document`).
+
+### Adapter vs Relay
+
+Choose the integration mode based on where your future app will live:
+
+- **Direct adapter plugin** — best when Hermes can talk to your app's API
+  directly and own the platform connection itself.
+- **Relay connector** — best when your app has its own always-on backend and you
+  want Hermes to connect over one authenticated socket while media crosses by
+  reference. This is the cleaner path for multi-tenant hosting, NATed gateways,
+  or connector-owned credentials.
+
+If you are starting from zero, prefer a backend design that can grow into the
+relay model later even if v1 begins as a direct adapter.
+
 ## Plugin Path (Recommended)
 
 The plugin system lets you add a platform adapter without modifying any core Hermes code. Your plugin is a directory with two files:
